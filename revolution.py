@@ -8,6 +8,8 @@ import itertools, random, time
 
 ### GLOBALS ###
 
+N_PLAYERS = 4
+N_GAMES = 10
 GAME_MODE = "allhuman"
 GAME_MODE = "onehuman"
 GAME_MODE = "allrandom"
@@ -63,14 +65,12 @@ def choose_action(moves_lst, mode="human"):
     else:
         print("Mode not known. Modes are 'human', 'random' and 'ml'")
 
-
-
 # initiate Match
 # define game mode
 # define number of players
 # define sequence of players
 
-current_match = Match(4, 100)
+current_match = Match(N_PLAYERS, N_GAMES)
 
 # initiate Players
 player_lst = []
@@ -118,18 +118,15 @@ while current_match.games_total !=  current_match.n_games_played:
         # update Discard
     discard_pile.update(shuffled_deck[j:])
 
+    # Exchange of cards between players    
+    # sometimes, there is a choice left
+    # (small action required) # currently ignored
 
-
-    # Exchange of cards between players
-
-    #example rank #
-    current_match.player_ranking = np.array([0,1,3,2])
-    ##
-
-    if str(current_match.player_ranking) == "":
+    if len(current_match.player_ranking) == 0:
         pass
     else:
-        first_place, second_place, second_to_last_place, last_place = current_match.player_ranking[[0,1,-2,-1]]
+        print("DEB current match player ranking", current_match.player_ranking)
+        first_place, second_place, second_to_last_place, last_place = current_match.player_ranking[:2] + current_match.player_ranking[-2:]
         first_hand = player_lst[first_place].hand
         second_hand = player_lst[second_place].hand
         second_to_last_hand = player_lst[second_to_last_place].hand
@@ -161,12 +158,7 @@ while current_match.games_total !=  current_match.n_games_played:
         #    second_card, second_to_last_card)
 
 
-
-    # (small action required) # currently ignored
-
-    # update Player (has automatically taken place due to referencing numpy array)
-
-    # define starting player (first game random, otherwise last player begins) ? check with rules ?!?
+    # define starting player (first game random, otherwise last player begins)
     if current_match.n_games_played == 0:
         starting_player = player_lst[current_game.starting_player]
     else:
@@ -190,7 +182,6 @@ while current_match.games_total !=  current_match.n_games_played:
         active_hand = active_player.hand
         print("Active Hand")
         print(get_human_cards(active_hand))
-        #print(active_hand)
 
         arg = np.argsort(active_hand[:,1])
         active_hand = active_hand[arg]
@@ -205,12 +196,10 @@ while current_match.games_total !=  current_match.n_games_played:
         possible_sames = [np.array([])]
         for same_value in split_hand:
             index_lst = list(itertools.product([False, True], repeat=same_value.shape[0]))
-            #print("product list", index_lst)
             index_array = np.array(index_lst)
 
             for indices in index_array:
                 move = same_value[indices,:]
-                #print(move)
                 if str(move) != "[]":
                     possible_sames.append(move)
         #print("possible moves Single, Double, Triple, ...", possible_sames)
@@ -232,32 +221,25 @@ while current_match.games_total !=  current_match.n_games_played:
         possible_straights = []
 
         for same_suite in split_hand:
-            #print(same_suite.shape[0])
             if same_suite.shape[0] >= 3:
 
                 arg = np.argsort(same_suite[:,1])
                 same_suite = same_suite[arg]
                 diff = same_suite - np.insert(same_suite[:-1], 0, same_suite[0] -1, axis = 0)
 
-                #print("same suite cards:", same_suite)
-
                 split_suite = np.split(same_suite, np.argwhere(diff[:,1] != 1.0).flatten()[0:])
-                #print("split suite")
-                #print(split_suite)
                 for straight in split_suite:
                     if straight.shape[0] >= 3:
 
                         # calculate possible moves:
                         # Straight
                         index_lst = list(itertools.product([False, True], repeat=straight.shape[0]))
-                        #print("product list", index_lst)
                         index_array = np.array(index_lst)
 
                         for indices in index_array:
                             move = straight[indices,:]
                             if move.shape[0] >= 3: 
                                 diff = move - np.insert(move[:-1], 0, move[0] -1, axis = 0)
-                                #print("same suite cards:", same_suite)
                                 if np.all(diff[:,1] == 1):                              
                                     possible_straights.append(move)
         #print("possible straight moves", possible_straights)
@@ -312,7 +294,7 @@ while current_match.games_total !=  current_match.n_games_played:
                 #print("Suite lock moves possible:")
                 #print(possible_moves)
 
-            # check wether the possible moves have a higher value
+            # check whether the possible moves have a higher value
             tmp_moves = []
             for move in possible_moves:
                 move_max = np.max(move[:,1])
@@ -320,10 +302,8 @@ while current_match.games_total !=  current_match.n_games_played:
                 # if greater than 0, then move is possible
                 difference = move_max - top_cards_max
                 if table.is_jack_switch != current_game.is_rev_switch:
-                    #print("Reverse order")
                     difference = - difference
                 else:
-                    #print("Normal order")
                     pass
                     # -13 for only 3 can top joker, joker can go under 3
                 if difference > 0 or difference == -13:
@@ -345,20 +325,10 @@ while current_match.games_total !=  current_match.n_games_played:
         #print("ACTION DONE")
         print("It has been chosen to play ", get_human_cards(move))
 
-        
-
     # update Player
         # remove cards from hand
         if len(move) > 0:
-            for card in move:
-                arg = np.argmin(np.any(active_hand[:] != card, axis = 1))
-                # all true
-                all_but_one = np.any(active_hand[:] != 42, axis = 1)
-                # except first appearance of card
-                all_but_one[arg] = False
-                active_hand = active_hand[all_but_one]
-                #active_hand = active_hand[np.any(active_hand[:] != card, axis = 1)]
-                active_player.hand = active_hand
+            active_hand = active_player.update(move)
     # update Game
 
         current_game.update(active_player_seating, move)
@@ -406,16 +376,10 @@ while current_match.games_total !=  current_match.n_games_played:
                         discard_card_list.append([card])
 
                     discarded_card = choose(discard_card_list, active_player_seating)
-                    #discarded_card = choose(active_hand, active_player_seating)
                     print("Player discarded:", get_human_cards(discarded_card))
     ## End of Action ##
-    ###################
-            # update Player 
-                    active_hand = active_hand[np.any(active_hand[:] != discarded_card, axis = 1)]
-                    active_player.hand = active_hand
-
-            # update Discard
-                    discard_pile.update(discarded_card)
+    ##################
+                    active_player.discard(discarded_card, discard_pile)
 
     # if Jack is played:
             if np.any(table.top_cards[:,1] == 8):
@@ -480,26 +444,11 @@ while current_match.games_total !=  current_match.n_games_played:
     ###
 
     # end of game - update
-
-    # Table
-    table.clear(discard_pile)
-
     # Game
-
-    current_game.end()
+    current_game.end(table, discard_pile, player_lst)
 
     # Match
-
     current_match.update(current_ranking, current_game.game_history)
-
-    # Players
-
-    for player in player_lst:
-        player.clear()
-
-    # update Discard
-
-    discard_pile.clear()
 
     # End of Game #
     ###############
@@ -531,20 +480,6 @@ print("The winner is player:", str(winner))
 t1 = time.time()
 
 print("Total run time:", t1-t0)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

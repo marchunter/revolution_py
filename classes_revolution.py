@@ -60,16 +60,20 @@ class Game():
         self.cards_played.append((active_player, cards))
         return
 
-    def end(self,):
+    def end(self, table_object, discard_object, player_lst):
         """Wraps up the game
         """
         self.game_history = self.cards_played
+        # Table
+        table_object.clear(discard_object)
 
-        # delete Discard pile
+        # Players
+        for player in player_lst:
+            player.clear()
+        # update Discard
+        discard_object.clear()
 
         # (update match)
-
-        # (update players)
 
 
         return self.game_history
@@ -95,7 +99,21 @@ class Player():
     def update(self, cards_played):
         # remove cards from self.hand =
         # YET TO BE IMPLEMENTED
+        for card in cards_played:
+            arg = np.argmin(np.any(self.hand[:] != card, axis = 1))
+            # all true
+            all_but_one = np.any(self.hand[:] != 42, axis = 1)
+            # except first appearance of card
+            all_but_one[arg] = False
+            self.hand = self.hand[all_but_one]
         return self.hand
+
+    def discard(self, card, discard_object):
+        # update Player 
+        self.hand = self.hand[np.any(self.hand[:] != card, axis = 1)]
+        # update Discard
+        discard_object.update(card)
+        return card
 
     def clear(self):
         self.hand = None

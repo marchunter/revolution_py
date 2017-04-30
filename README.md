@@ -12,8 +12,6 @@ implementation includes
 
 to do:
 - ml implementation
-- tidy up game logic, add more of the code there to classes
-- tidy up classes
 - make it MUCH faster!
 
 how to use:
